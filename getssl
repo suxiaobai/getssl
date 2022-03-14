@@ -627,9 +627,9 @@ check_challenge_completion_dns() { # perform validation via DNS challenge
 
           if [[ $DNS_WAIT_RETRY_ADD == "true" && $(( ntries % 10 )) == 0 ]]; then
             debug "Deleting DNS via command: ${DNS_DEL_COMMAND}"
-            del_dns_rr "${d}" "${auth_key}"
+            del_dns_rr "${rr}" "${auth_key}"
             debug "Retrying adding DNS via command: ${DNS_ADD_COMMAND}"
-            add_dns_rr "${d}" "${auth_key}" \
+            add_dns_rr "${rr}" "${auth_key}" \
               || error_exit "DNS_ADD_COMMAND failed for domain ${d}"
           fi
           info "checking DNS at ${ns} for ${rr}. Attempt $ntries/${DNS_WAIT_COUNT} gave wrong result, "\
@@ -637,7 +637,7 @@ check_challenge_completion_dns() { # perform validation via DNS challenge
           sleep $DNS_WAIT
         else
           debug "dns check failed - removing existing value"
-          del_dns_rr "${d}" "${auth_key}"
+          del_dns_rr "${rr}" "${auth_key}"
 
           error_exit "checking \"${rr}\" gave \"$check_result\" not \"$auth_key\""
         fi
@@ -941,8 +941,8 @@ clean_up() { # Perform pre-exit housekeeping
     for dnsfile in "$TEMP_DIR"/dns_verify/*; do
       # shellcheck source=/dev/null
       . "$dnsfile"
-      debug "attempting to clean up DNS entry for $d"
-      del_dns_rr "${d}" "${auth_key}"
+      debug "attempting to clean up DNS entry for $rr"
+      del_dns_rr "${rr}" "${auth_key}"
     done
     shopt -u nullglob
   fi
@@ -1407,11 +1407,11 @@ for d in "${alldomains[@]}"; do
         | sed -e 's:=*$::g' -e 'y:+/:-_:')
       debug auth_key "$auth_key"
 
-      add_dns_rr "${d}" "${auth_key}" \
-        || error_exit "DNS_ADD_COMMAND failed for domain $d"
-
       # shellcheck disable=SC2018,SC2019
       rr="_acme-challenge.$(printf '%s' "${d#\*.}" | tr 'A-Z' 'a-z')"
+
+      add_dns_rr "${rr}" "${auth_key}" \
+        || error_exit "DNS_ADD_COMMAND failed for domain $d"
 
       # find a primary / authoritative DNS server for the domain
       if [[ -z "$AUTH_DNS_SERVER" ]]; then
@@ -1438,7 +1438,7 @@ for d in "${alldomains[@]}"; do
       # let Let's Encrypt check
       check_challenge_completion "${uri}" "${d}" "${keyauthorization}"
 
-      del_dns_rr "${d}" "${auth_key}"
+      del_dns_rr "${rr}" "${auth_key}"
     else      # set up the correct http token for verification
       if [[ $API -eq 1 ]]; then
         # get the token from the http component
